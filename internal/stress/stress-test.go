@@ -3,6 +3,8 @@ package stress
 import (
 	"context"
 	"time"
+
+	"github.com/mobenaus/fc-pos-go-desafio-stress-test/internal/request"
 )
 
 type StressTest struct {
@@ -30,12 +32,32 @@ func NewStressTest(
 }
 
 func (st *StressTest) Execute(ctx context.Context) (StressTestResults, error) {
+
+	result := StressTestResults{
+		TotalStatusMap: make(map[int]int),
+	}
+	request, error := request.NewStressRequest(st.url)
+	if error != nil {
+		return StressTestResults{}, error
+	}
+
 	start := time.Now()
 
-	time.Sleep(10 * time.Second)
+	result.TotalRequests++
+
+	status, error := request.Execute()
+	if error != nil {
+		return StressTestResults{}, error
+	}
+
+	if status == 200 {
+		result.Total200Requests++
+	}
+	result.TotalStatusMap[status]++
 
 	finish := time.Now()
-	return StressTestResults{
-		TotalTime: finish.Sub(start),
-	}, nil
+
+	result.TotalTime = finish.Sub(start)
+
+	return result, nil
 }
