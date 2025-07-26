@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"sync"
-	"sync/atomic"
 	"time"
 
 	"github.com/mobenaus/fc-pos-go-desafio-stress-test/internal/request"
@@ -14,13 +13,6 @@ type StressTest struct {
 	url         string
 	requests    int
 	concurrency int
-}
-
-type StressTestResults struct {
-	TotalTime        time.Duration
-	TotalRequests    int64
-	Total200Requests int64
-	TotalStatusMap   sync.Map
 }
 
 func NewStressTest(
@@ -36,67 +28,62 @@ func NewStressTest(
 
 func (st *StressTest) Execute(ctx context.Context) (*StressTestResults, error) {
 
-	result := &StressTestResults{
-		TotalStatusMap: sync.Map{},
-	}
+	result := NewStressTestResults()
+
 	request, error := request.NewStressRequest(st.url)
 	if error != nil {
 		return result, error
 	}
 
-	start := time.Now()
+	result.Start()
+	defer result.Finish()
 
-	defer func() {
-		result.TotalTime = time.Since(start)
+	requestchannel := make(chan int)
+	resultchannel := make(chan int, st.requests)
+	var requestwg sync.WaitGroup
+	var resultwg sync.WaitGroup
+
+	go func() {
+		for {
+			status := <-resultchannel
+			result.CountResult(status)
+			resultwg.Done()
+		}
 	}()
-
-	rc := make(chan int)
-	var wg sync.WaitGroup
 
 	for range st.concurrency {
 		go func() {
 			for {
-				<-rc
-				err := st.callRequest(result, request)
+				<-requestchannel
+				status, err := request.Execute()
 				if err != nil {
 					fmt.Println(err.Error())
 				}
-				wg.Done()
+				resultwg.Add(1)
+				resultchannel <- status
+				requestwg.Done()
 			}
 		}()
 	}
 
 	var i int
 
-	go func() {
-		for {
-			time.Sleep(time.Second)
-			fmt.Printf("Called %d requests...\r", i)
-		}
-	}()
+	go reportStatusRoutine(&i)
 
 	for i = 0; i < st.requests; i++ {
-		wg.Add(1)
-		rc <- i
+		requestwg.Add(1)
+		requestchannel <- i
 	}
-	wg.Wait()
+
+	requestwg.Wait()
+	resultwg.Wait()
+
 	return result, nil
 }
 
-func (st *StressTest) callRequest(result *StressTestResults, request *request.StressRequest) error {
-	atomic.AddInt64(&result.TotalRequests, 1)
-
-	status, error := request.Execute()
-	if error != nil {
-		return error
+func reportStatusRoutine(counter *int) {
+	for {
+		time.Sleep(time.Second)
+		fmt.Printf("Called %d requests...\r", *counter)
 	}
-
-	if status == 200 {
-		atomic.AddInt64(&result.Total200Requests, 1)
-	} else {
-		val, _ := result.TotalStatusMap.LoadOrStore(status, new(int64))
-		ptr := val.(*int64)
-		atomic.AddInt64(ptr, 1)
-	}
-	return nil
 }
