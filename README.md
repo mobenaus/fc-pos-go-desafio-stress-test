@@ -29,5 +29,5 @@ Quantidade de requests com status HTTP 200.
 Distribuição de outros códigos de status HTTP (como 404, 500, etc.).
 Execução da aplicação:
 Poderemos utilizar essa aplicação fazendo uma chamada via docker. Ex:
-docker run <sua imagem docker> —url=http://google.com —requests=1000 —concurrency=10
+docker run <sua imagem docker> --url=http://google.com --requests=1000 --concurrency=10
 ```
