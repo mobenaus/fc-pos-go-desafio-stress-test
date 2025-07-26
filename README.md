@@ -90,7 +90,7 @@ Requests por segundo 30.413515
 
 ## Imagem Docker
 
-A imagem foi gerada através do GitHub actions e disponibilizada no Registro do GitHub.
+A imagem foi gerada através do GitHub actions e disponibilizada no Registry do GitHub.
 ```
 ghcr.io/mobenaus/fc-pos-go-desafio-stress-test
 ```
